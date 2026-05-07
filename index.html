@@ -1,0 +1,92 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  username      String?   @unique
+  reputation    Int       @default(0)
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  questions     Question[]
+  answers       Answer[]
+  votes         Vote[]
+  bookmarks     Bookmark[]
+  reports       Report[]
+  notifications Notification[]
+  accounts      Account[]
+}
+
+model Account { /* NextAuth fields */ 
+  id String @id @default(cuid())
+  userId String
+  type String
+  provider String
+  providerAccountId String
+  refresh_token String? @db.Text
+  access_token String? @db.Text
+  expires_at Int?
+  token_type String?
+  scope String?
+  id_token String? @db.Text
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Question {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  content     String?
+  userId      String
+  categoryId  String?
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+  category    Category? @relation(fields: [categoryId], references: [id])
+  aiAnswer    Answer?  @relation("AIAnswer")
+  answers     Answer[]
+  votes       Vote[]
+  bookmarks   Bookmark[]
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  content    String   // Markdown
+  questionId String
+  userId     String?
+  isAI       Boolean  @default(false)
+  citations  Json?
+  tokensUsed Int?
+  createdAt  DateTime @default(now())
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
+  votes      Vote[]
+}
+
+model Vote { id String @id @default(cuid()) userId String questionId String? answerId String? type VoteType createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+  question Question? @relation(fields: [questionId], references: [id])
+  answer Answer? @relation(fields: [answerId], references: [id])
+  @@unique([userId, questionId]) @@unique([userId, answerId])
+}
+
+model Bookmark { id String @id @default(cuid()) userId String questionId String createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+  question Question @relation(fields: [questionId], references: [id])
+  @@unique([userId, questionId])
+}
+
+model Category { id String @id @default(cuid()) name String @unique slug String @unique questions Question[] }
+
+model Report { id String @id @default(cuid()) userId String questionId String? answerId String? reason String status ReportStatus @default(PENDING) createdAt DateTime @default(now()) }
+
+model Notification { id String @id @default(cuid()) userId String type String title String message String read Boolean @default(false) createdAt DateTime @default(now()) }
+
+enum Role { USER ADMIN }
+enum VoteType { UP DOWN }
+enum ReportStatus { PENDING RESOLVED DISMISSED }
